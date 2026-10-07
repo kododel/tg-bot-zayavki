@@ -64,6 +64,57 @@ def test_validators() -> None:
             f"получено {validators.normalize_phone(bad)!r}",
         )
 
+    # --- Проверка правдоподобия номера: раньше пропускалось всё, где
+    # --- 10–15 цифр подряд. Именно на этом мы и погорели.
+    check(
+        "случайные цифры 6593751033 отклонены",
+        validators.normalize_phone("6593751033") is None,
+        f"получено {validators.normalize_phone('6593751033')!r}",
+    )
+    check(
+        "несуществующий код +7 659 отклонён",
+        validators.normalize_phone("+7 659 375-10-33") is None,
+    )
+    check(
+        "код на 1 отклонён",
+        validators.normalize_phone("1234567890") is None,
+    )
+    check("все цифры одинаковые отклонены", validators.normalize_phone("7777777777") is None)
+    check("повторяющийся блок отклонён", validators.normalize_phone("1212121212") is None)
+    check(
+        "убывающая последовательность 9876543210 отклонена",
+        validators.normalize_phone("9876543210") is None,
+        f"получено {validators.normalize_phone('9876543210')!r}",
+    )
+
+    # Реальные номера, которые обязаны проходить
+    for good, expected in {
+        "9991234567": "+79991234567",      # мобильный без кода страны
+        "8 999 123 45 67": "+79991234567",  # привычная запись через 8
+        "+7 999 123-45-67": "+79991234567",
+        "4951234567": "+74951234567",       # московский городской
+        "8121234567": "+78121234567",       # петербургский городской
+    }.items():
+        actual = validators.normalize_phone(good)
+        check(f"реальный номер {good!r} принят", actual == expected, f"получено {actual!r}")
+
+    # Зарубежный номер: при PHONE_COUNTRY=ANY правила нумерации не применяются
+    check(
+        "зарубежный номер при country=ANY принят",
+        validators.normalize_phone("+375291234567", country="ANY") == "+375291234567",
+        f"получено {validators.normalize_phone('+375291234567', country='ANY')!r}",
+    )
+    check(
+        "тот же номер при country=RU проходит только по общим правилам",
+        validators.normalize_phone("+375291234567") == "+375291234567",
+    )
+
+    # Проверяем, что у ошибок есть внятный текст, а не просто None
+    _, error = validators.check_phone("6593751033")
+    check("ошибка объясняет причину", bool(error) and "код" in error.lower(), str(error))
+    _, error = validators.check_phone("")
+    check("пустой номер даёт понятную ошибку", bool(error), str(error))
+
     check("имя «Иван Петров» принято", validators.validate_name("Иван Петров") is None)
     check("имя «Анна-Мария» принято", validators.validate_name("Анна-Мария") is None)
     check("имя «X» отклонено", validators.validate_name("X") is not None)
@@ -190,7 +241,13 @@ def test_handlers_import() -> None:
     )
     check(
         "все шаги формы зарегистрированы",
-        {"process_name", "process_phone", "process_comment", "confirm_application"}
+        {
+            "process_name",
+            "process_phone",
+            "process_comment",
+            "confirm_application",
+            "edit_phone",
+        }
         <= message_handlers | callback_handlers,
         str(sorted(message_handlers | callback_handlers)),
     )

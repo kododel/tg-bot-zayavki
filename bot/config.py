@@ -43,6 +43,10 @@ class Config:
     company_description: str = "Опишите здесь, чем занимается компания."
     manager_contact: str = ""
 
+    # Страна для проверки телефона: "RU" — по правилам российской нумерации,
+    # "ANY" — только общие проверки, если клиенты бывают из других стран.
+    phone_country: str = "RU"
+
     db_path: Path = BASE_DIR / "data" / "applications.db"
     export_dir: Path = BASE_DIR / "data" / "exports"
 
@@ -73,6 +77,7 @@ def load_config() -> Config:
             "COMPANY_DESCRIPTION", "Опишите здесь, чем занимается компания."
         ).strip(),
         manager_contact=os.getenv("MANAGER_CONTACT", "").strip(),
+        phone_country=os.getenv("PHONE_COUNTRY", "RU").strip() or "RU",
         db_path=Path(os.getenv("DB_PATH", str(BASE_DIR / "data" / "applications.db"))),
         export_dir=Path(os.getenv("EXPORT_DIR", str(BASE_DIR / "data" / "exports"))),
     )

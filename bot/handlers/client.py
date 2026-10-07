@@ -28,7 +28,7 @@ from bot.keyboards import (
     confirm_menu,
     main_menu,
 )
-from bot.validators import format_phone, normalize_phone, validate_comment, validate_name
+from bot.validators import check_phone, format_phone, validate_comment, validate_name
 
 logger = logging.getLogger(__name__)
 
@@ -183,13 +183,10 @@ async def process_name(message: Message, state: FSMContext) -> None:
 
 
 @router.message(ApplicationForm.phone)
-async def process_phone(message: Message, state: FSMContext) -> None:
-    phone = normalize_phone(message.text)
-    if phone is None:
-        await message.answer(
-            "Не похоже на номер телефона. Пример: +7 999 123-45-67.",
-            reply_markup=cancel_menu(),
-        )
+async def process_phone(message: Message, state: FSMContext, config: Config) -> None:
+    phone, error = check_phone(message.text, country=config.phone_country)
+    if error:
+        await message.answer(error, reply_markup=cancel_menu())
         return
 
     await state.update_data(phone=phone)
@@ -281,6 +278,25 @@ async def confirm_application(
             "Заявка №%s сохранена, но ни одному админу не доставлена. "
             "Проверьте ADMIN_IDS и что админы нажали /start.",
             app_id,
+        )
+
+
+@router.callback_query(F.data == "app:phone", ApplicationForm.confirm)
+async def edit_phone(callback: CallbackQuery, state: FSMContext) -> None:
+    """Возврат на шаг телефона.
+
+    Имя и задача уже собраны — терять их из-за одной опечатки в номере
+    незачем. После ввода номера бот снова покажет сводку.
+    """
+    await state.set_state(ApplicationForm.phone)
+
+    await callback.answer()
+    if isinstance(callback.message, Message):
+        await callback.message.edit_text("Хорошо, исправим номер.")
+        await callback.message.answer(
+            "Введите номер телефона в любом формате: "
+            "+7 999 123-45-67 или 8 999 123 45 67.",
+            reply_markup=cancel_menu(),
         )
 
 

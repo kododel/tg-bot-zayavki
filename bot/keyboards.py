@@ -47,10 +47,16 @@ def cancel_menu() -> ReplyKeyboardMarkup:
 
 
 def confirm_menu() -> InlineKeyboardMarkup:
-    """Подтверждение перед отправкой заявки."""
+    """Подтверждение перед отправкой заявки.
+
+    Кнопка «Изменить номер» здесь не для красоты: телефон — единственное
+    поле, где опечатка ломает всё. Заказчик, увидевший в сводке не тот
+    номер, не станет заполнять имя и задачу заново — он просто закроет бота.
+    """
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="✅ Отправить", callback_data="app:confirm")],
+            [InlineKeyboardButton(text="📞 Изменить номер", callback_data="app:phone")],
             [InlineKeyboardButton(text="✏️ Заполнить заново", callback_data="app:restart")],
         ]
     )
